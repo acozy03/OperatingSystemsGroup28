@@ -1,4 +1,9 @@
-# file: PA1/scheduler-gpt-v2.py
+# Students:
+# <Name> - FCFS
+# <Name> - SJF
+# Camilo Alvarez-Velez - RR
+# <Name> - RR2
+
 import sys
 import heapq
 
