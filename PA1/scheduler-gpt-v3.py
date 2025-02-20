@@ -1,8 +1,8 @@
 # Students:
-# <Name> - FCFS
-# <Name> - SJF
+# Kazi Amin - FCFS
+# Adrian Cosentino - SJF
 # Camilo Alvarez-Velez - RR
-# <Name> - RR2
+# Edward Rosales - RR2
 
 import sys
 import heapq
@@ -73,7 +73,7 @@ def parse_input(filename):
 # Implementation of Pre-emptive Shortest Job First Scheduling Algorithm
 def sjf_scheduler(process_count, total_time, processes, output_filename):
     output = []
-    output.append(f"{process_count} processes")
+    output.append(f"{process_count:>3} processes")
     output.append("Using preemptive Shortest Job First")
 
     time = 0
@@ -87,7 +87,7 @@ def sjf_scheduler(process_count, total_time, processes, output_filename):
     while time < total_time:
         # Check for new arrivals
         while process_index < len(processes) and processes[process_index].arrival <= time:
-            output.append(f"Time {time} : {processes[process_index].name} arrived")
+            output.append(f"Time {time:>3} : {processes[process_index].name} arrived")
             heapq.heappush(ready_queue, processes[process_index])
             process_index += 1
 
@@ -101,7 +101,7 @@ def sjf_scheduler(process_count, total_time, processes, output_filename):
             running_process = heapq.heappop(ready_queue)
             if running_process.start_time == -1:
                 running_process.start_time = time
-            output.append(f"Time {time} : {running_process.name} selected (burst {running_process.remaining_time})")
+            output.append(f"Time {time:>3} : {running_process.name} selected (burst {running_process.remaining_time:>3})")
 
         # Run the selected process
         if running_process:
@@ -109,14 +109,14 @@ def sjf_scheduler(process_count, total_time, processes, output_filename):
             if running_process.remaining_time == 0:
                 running_process.finish_time = time + 1
                 finished_processes.append(running_process)
-                output.append(f"Time {time + 1} : {running_process.name} finished")
+                output.append(f"Time {(time + 1):>3} : {running_process.name} finished")
                 running_process = None
         else:
-            output.append(f"Time {time} : Idle")
+            output.append(f"Time {time:>3} : Idle")
 
         time += 1
 
-    output.append(f"Finished at time {total_time}")
+    output.append(f"Finished at time {total_time:>3}")
 
     for process in processes:
         if process.finish_time == -1:
@@ -125,7 +125,7 @@ def sjf_scheduler(process_count, total_time, processes, output_filename):
             turnaround_time = process.finish_time - process.arrival
             waiting_time = turnaround_time - process.burst
             response_time = process.start_time - process.arrival
-            output.append(f"{process.name} wait {waiting_time} turnaround {turnaround_time} response {response_time}")
+            output.append(f"{process.name} wait {waiting_time:>3} turnaround {turnaround_time:>3} response {response_time:>3}")
 
     if unfinished:
         output.append("Processes that did not finish: " + " ".join(unfinished))
@@ -136,7 +136,7 @@ def sjf_scheduler(process_count, total_time, processes, output_filename):
 #Implementation of First Come First Serve Scheduling Algorithm
 def fcfs_scheduler(process_count, total_time, processes, output_filename):
     output = []
-    output.append(f"{process_count} processes")
+    output.append(f"{process_count:>3} processes")
     output.append("Using First-Come First-Served")
 
     time = 0
@@ -148,7 +148,7 @@ def fcfs_scheduler(process_count, total_time, processes, output_filename):
     while time < total_time:
         # Check for new arrivals
         while process_index < len(processes) and processes[process_index].arrival == time:
-            output.append(f"Time {time} : {processes[process_index].name} arrived")
+            output.append(f"Time {time:>3} : {processes[process_index].name} arrived")
             process_index += 1
 
         # Select a new process if necessary
@@ -157,7 +157,7 @@ def fcfs_scheduler(process_count, total_time, processes, output_filename):
                 if process.finish_time == -1 and process.arrival <= time:
                     running_process = process
                     running_process.start_time = time
-                    output.append(f"Time {time} : {running_process.name} selected (burst {running_process.burst})")
+                    output.append(f"Time {time:>3} : {running_process.name} selected (burst {running_process.burst:>3})")
                     break
 
         # Run the selected process
@@ -166,15 +166,15 @@ def fcfs_scheduler(process_count, total_time, processes, output_filename):
             if running_process.remaining_time == 0:
                 running_process.finish_time = time + 1
                 finished_processes.append(running_process)
-                output.append(f"Time {time + 1} : {running_process.name} finished")
+                output.append(f"Time {(time + 1):>3} : {running_process.name} finished")
                 running_process = None
         else:
-            output.append(f"Time {time} : Idle")
+            output.append(f"Time {time:>3} : Idle")
 
         time += 1
 
     # Print final results
-    output.append(f"Finished at time {total_time}\n")
+    output.append(f"Finished at time {total_time:>3}\n")
 
     # Sort processes by name before printing final statistics
     processes.sort(key=lambda p: p.name)
@@ -183,7 +183,7 @@ def fcfs_scheduler(process_count, total_time, processes, output_filename):
         turnaround = process.finish_time - process.arrival
         wait_time = turnaround - process.burst
         response_time = process.start_time - process.arrival
-        output.append(f"{process.name} wait {wait_time} turnaround {turnaround} response {response_time}")
+        output.append(f"{process.name} wait {wait_time:>3} turnaround {turnaround:>3} response {response_time:>3}")
 
     # Write to output file
     with open(output_filename, "w") as file:
