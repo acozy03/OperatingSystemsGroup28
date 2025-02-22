@@ -1,3 +1,9 @@
+# Students:
+# Kazi Amin - FCFS
+# Adrian Cosentino - SJF
+# Camilo Alvarez-Velez - RR
+# Edward Rosales - SJF2 & Optimizations
+
 import sys
 import heapq
 from collections import deque
