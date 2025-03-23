@@ -1,36 +1,43 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "chash.h"
-#include <pthread.h>
-#include <semaphore.h>
-#include <unistd.h>
 
-#define MAX_LINE_LENGTH 256
+// Global table instance
+hashTable table;
 
-// Define semaphore wrapper macros to match the reference code
-#define Sem_init(sem, value) sem_init(sem, 0, value)
-#define Sem_wait(sem) sem_wait(sem)
-#define Sem_post(sem) sem_post(sem)
+// Jenkins Hash Function
+uint32_t jenkins_hash(const char *key) {
+    uint32_t hash = 0;
+    while (*key) {
+        hash += *key++;
+        hash += (hash << 10);
+        hash ^= (hash >> 6);
+    }
+    hash += (hash << 3);
+    hash ^= (hash >> 11);
+    hash += (hash << 15);
+    return hash % TABLE_SIZE;
+}
 
-// Read/Write Lock Implementation (based on the reference)
-typedef struct rwlock_t {
-    sem_t writelock;
-    sem_t lock;
-    int readers;
-} rwlock_t;
+// Initialize Hash Table and Locks
+void initialize_table() {
+    for (int i = 0; i < TABLE_SIZE; i++) {
+        table.buckets[i] = NULL;
+        rwlock_init(&table.locks[i]);
+    }
+}
 
+// Initialize Read/Write Lock
 void rwlock_init(rwlock_t *lock) {
     lock->readers = 0;
     Sem_init(&lock->lock, 1);
     Sem_init(&lock->writelock, 1);
 }
 
+// Acquire and Release Read Lock
 void rwlock_acquire_readlock(rwlock_t *lock) {
     Sem_wait(&lock->lock);
     lock->readers++;
     if (lock->readers == 1)
-	    Sem_wait(&lock->writelock);
+        Sem_wait(&lock->writelock);
     Sem_post(&lock->lock);
 }
 
@@ -38,16 +45,50 @@ void rwlock_release_readlock(rwlock_t *lock) {
     Sem_wait(&lock->lock);
     lock->readers--;
     if (lock->readers == 0)
-	    Sem_post(&lock->writelock);
+        Sem_post(&lock->writelock);
     Sem_post(&lock->lock);
 }
 
+// Acquire and Release Write Lock
 void rwlock_acquire_writelock(rwlock_t *lock) {
     Sem_wait(&lock->writelock);
 }
 
 void rwlock_release_writelock(rwlock_t *lock) {
     Sem_post(&lock->writelock);
+}
+
+// Insert Record into Hash Table
+void insert(const char *name, uint32_t salary) {
+    // Compute the hash for the given key.
+    uint32_t hash = jenkins_hash(name);
+    // Acquire the **write lock** for the list.
+    rwlock_acquire_writelock(&table.locks[hash]);
+
+    // Search the linked list for an existing node with the same hash:
+    hashRecord *current = table.buckets[hash];
+    while (current) {
+        // If found, update its value.
+        if (strcmp(current->name, name) == 0) {
+            current->salary = salary;
+            printf("Updated: %s with salary %u\n", name, salary);
+            rwlock_release_writelock(&table.locks[hash]);
+            return;
+        }
+        current = current->next;
+    }
+
+    // Otherwise, create and insert a new node.
+    hashRecord *newNode = malloc(sizeof(hashRecord));
+    strcpy(newNode->name, name);
+    newNode->salary = salary;
+    newNode->hash = hash;
+    newNode->next = table.buckets[hash];
+    table.buckets[hash] = newNode;
+    printf("Inserted: %s with salary %u\n", name, salary);
+
+    // Release the write lock and return.
+    rwlock_release_writelock(&table.locks[hash]);
 }
 
 // Global read/write lock instance
