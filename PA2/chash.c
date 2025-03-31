@@ -4,9 +4,11 @@
 hashTable table;
 
 // Jenkins Hash Function
-uint32_t jenkins_hash(const char *key) {
+uint32_t jenkins_hash(const char *key)
+{
     uint32_t hash = 0;
-    while (*key) {
+    while (*key)
+    {
         hash += *key++;
         hash += (hash << 10);
         hash ^= (hash >> 6);
@@ -18,22 +20,26 @@ uint32_t jenkins_hash(const char *key) {
 }
 
 // Initialize Hash Table and Locks
-void initialize_table() {
-    for (int i = 0; i < TABLE_SIZE; i++) {
+void initialize_table()
+{
+    for (int i = 0; i < TABLE_SIZE; i++)
+    {
         table.buckets[i] = NULL;
         rwlock_init(&table.locks[i]);
     }
 }
 
 // Initialize Read/Write Lock
-void rwlock_init(rwlock_t *lock) {
+void rwlock_init(rwlock_t *lock)
+{
     lock->readers = 0;
     Sem_init(&lock->lock, 1);
     Sem_init(&lock->writelock, 1);
 }
 
 // Acquire and Release Read Lock
-void rwlock_acquire_readlock(rwlock_t *lock) {
+void rwlock_acquire_readlock(rwlock_t *lock)
+{
     Sem_wait(&lock->lock);
     lock->readers++;
     if (lock->readers == 1)
@@ -41,7 +47,8 @@ void rwlock_acquire_readlock(rwlock_t *lock) {
     Sem_post(&lock->lock);
 }
 
-void rwlock_release_readlock(rwlock_t *lock) {
+void rwlock_release_readlock(rwlock_t *lock)
+{
     Sem_wait(&lock->lock);
     lock->readers--;
     if (lock->readers == 0)
@@ -50,16 +57,19 @@ void rwlock_release_readlock(rwlock_t *lock) {
 }
 
 // Acquire and Release Write Lock
-void rwlock_acquire_writelock(rwlock_t *lock) {
+void rwlock_acquire_writelock(rwlock_t *lock)
+{
     Sem_wait(&lock->writelock);
 }
 
-void rwlock_release_writelock(rwlock_t *lock) {
+void rwlock_release_writelock(rwlock_t *lock)
+{
     Sem_post(&lock->writelock);
 }
 
 // Insert Record into Hash Table
-void insert(const char *name, uint32_t salary) {
+void insert(const char *name, uint32_t salary)
+{
     // Compute the hash for the given key.
     uint32_t hash = jenkins_hash(name);
     // Acquire the **write lock** for the list.
@@ -67,9 +77,11 @@ void insert(const char *name, uint32_t salary) {
 
     // Search the linked list for an existing node with the same hash:
     hashRecord *current = table.buckets[hash];
-    while (current) {
+    while (current)
+    {
         // If found, update its value.
-        if (strcmp(current->name, name) == 0) {
+        if (strcmp(current->name, name) == 0)
+        {
             current->salary = salary;
             printf("Updated: %s with salary %u\n", name, salary);
             rwlock_release_writelock(&table.locks[hash]);
@@ -95,7 +107,8 @@ void insert(const char *name, uint32_t salary) {
 rwlock_t rwlock;
 
 // Delete Record from Hash Table
-void delete(const char *name) {
+void delete(const char *name)
+{
     // Compute the hash value for the given key.
     uint32_t hash = jenkins_hash(name);
 
@@ -107,13 +120,18 @@ void delete(const char *name) {
     hashRecord *prev = NULL;
 
     // Search for the record with the matching name.
-    while (current != NULL) {
-        if (strcmp(current->name, name) == 0) {
+    while (current != NULL)
+    {
+        if (strcmp(current->name, name) == 0)
+        {
             // If the record is found, remove it from the list.
-            if (prev == NULL) {
+            if (prev == NULL)
+            {
                 // Deleting the first node in the list.
                 table.buckets[hash] = current->next;
-            } else {
+            }
+            else
+            {
                 prev->next = current->next;
             }
             printf("Deleted: %s\n", name);
@@ -129,25 +147,57 @@ void delete(const char *name) {
     rwlock_release_writelock(&table.locks[hash]);
 }
 
-//This was made to test the insert and delete commands. Print and search can be added to test implementation
-void* process_command(void *arg) {
+// Searches for a Record in the Hash Table
+void search(const char *name)
+{
+    uint32_t hash = jenkins_hash(name);          // Compute hash
+    rwlock_acquire_readlock(&table.locks[hash]); // Acquire read lock
+
+    hashRecord *current = table.buckets[hash];
+
+    while (current != NULL)
+    {
+        if (strcmp(current->name, name) == 0)
+        {
+            printf("SEARCH FOUND: %s with salary %u\n", current->name, current->salary); // Print result
+            rwlock_release_readlock(&table.locks[hash]); // Release read lock
+            return;
+        }
+        current = current->next;
+    }
+
+    printf("SEARCH: NOT FOUND NOT FOUND\n"); // If key is not found
+    rwlock_release_readlock(&table.locks[hash]); // Release read lock
+}
+
+// This was made to test the insert and delete commands. Print and search can be added to test implementation
+void *process_command(void *arg)
+{
     char *cmd = (char *)arg;
 
     // Make a copy because strtok modifies the string
     char *line_copy = strdup(cmd);
     char *token = strtok(line_copy, ",");
 
-    if (strcmp(token, "insert") == 0) {
+    if (strcmp(token, "insert") == 0)
+    {
         char *name = strtok(NULL, ",");
         char *salary_str = strtok(NULL, ",");
         uint32_t salary = (uint32_t)atoi(salary_str);
         insert(name, salary);
     }
-    else if (strcmp(token, "delete") == 0) {
+    else if (strcmp(token, "delete") == 0)
+    {
         char *name = strtok(NULL, ",");
-        delete(name);
+        delete (name);
     }
-    else {
+    else if (strcmp(token, "search") == 0)
+    {
+        char *name = strtok(NULL, ",");
+        search(name);
+    }
+    else
+    {
         // Ignore search and print for now
     }
 
@@ -172,16 +222,18 @@ void* process_command(void *arg) {
 }
 */
 
-
-int main(void) {
+int main(void)
+{
     FILE *file = fopen("commands.txt", "r");
-    if (!file) {
+    if (!file)
+    {
         perror("Error opening commands.txt");
         return EXIT_FAILURE;
     }
 
     char line[MAX_LINE_LENGTH];
-    if (!fgets(line, sizeof(line), file)) {
+    if (!fgets(line, sizeof(line), file))
+    {
         fclose(file);
         return EXIT_FAILURE;
     }
@@ -193,7 +245,8 @@ int main(void) {
 
     // Create an array of threads
     pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
-    if (!threads) {
+    if (!threads)
+    {
         fclose(file);
         return EXIT_FAILURE;
     }
@@ -204,16 +257,19 @@ int main(void) {
     int thread_count = 0;
 
     // Loops until the specified number of threads is created or there are no more lines to read.
-    while (thread_count < num_threads && fgets(line, sizeof(line), file)) {
+    while (thread_count < num_threads && fgets(line, sizeof(line), file))
+    {
         // Remove the newline character from the end of the line
         line[strcspn(line, "\n")] = '\0';
 
         // Create a copy of the line to pass to the thread
         char *cmd_copy = strdup(line);
-        if (!cmd_copy) break;
+        if (!cmd_copy)
+            break;
 
         // Create thread at index thread_count, no attributes, process_command function, and pass cmd_copy as function argument
-        if (pthread_create(&threads[thread_count], NULL, process_command, cmd_copy) != 0) {
+        if (pthread_create(&threads[thread_count], NULL, process_command, cmd_copy) != 0)
+        {
             free(cmd_copy);
             break;
         }
