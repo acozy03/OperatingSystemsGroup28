@@ -7,12 +7,13 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <sys/time.h>
 
 #define TABLE_SIZE 100
 #define MAX_NAME_LENGTH 50
 #define MAX_LINE_LENGTH 256
 
-// semaphore macros 
+// Define semaphore macros to match the reference code  
 #define Sem_init(sem, value) sem_init(sem, 0, value)
 #define Sem_wait(sem) sem_wait(sem)
 #define Sem_post(sem) sem_post(sem)
@@ -38,7 +39,7 @@ typedef struct hashTable {
 
 extern hashTable table;
 
-// functions we need
+// Hash table functions
 void rwlock_init(rwlock_t *lock);
 void rwlock_acquire_readlock(rwlock_t *lock);
 void rwlock_release_readlock(rwlock_t *lock);
@@ -48,7 +49,12 @@ void initialize_table();
 void insert(const char *name, uint32_t salary);
 void delete(const char *name);
 void search(const char *name);
-void print_table();
+void print();
+void print_final_table();
 uint32_t jenkins_hash(const char *key);
+long long get_timestamp();
+
+// For comparing hash records
+int compare_hash_records(const void *a, const void *b);
 
 #endif
