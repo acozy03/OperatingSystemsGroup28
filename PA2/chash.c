@@ -76,22 +76,18 @@ void rwlock_release_readlock(rwlock_t *lock) {
 // Acquire and Release Write Lock
 void rwlock_acquire_writelock(rwlock_t *lock) {
     Sem_wait(&lock->writelock);
-
     lock_acquisitions++;
     fprintf(output_file, "%lld: WRITE LOCK ACQUIRED\n", get_timestamp());
 }
 
 void rwlock_release_writelock(rwlock_t *lock) {
     Sem_post(&lock->writelock);
-
     lock_releases++;
     fprintf(output_file, "%lld: WRITE LOCK RELEASED\n", get_timestamp());
 }
 
 // Insert Record into Hash Table
 void insert(const char *name, uint32_t salary) {
-    _sleep(1);  // Simulate delay
-
     fprintf(output_file, "%lld: INSERT,%u,%s,%u\n", get_timestamp(), jenkins_hash(name), name, salary);
 
     uint32_t hash = jenkins_hash(name);
@@ -109,6 +105,11 @@ void insert(const char *name, uint32_t salary) {
     }
 
     hashRecord *newNode = malloc(sizeof(hashRecord));
+    if (!newNode) {
+        fprintf(output_file, "Memory allocation error in insert\n");
+        rwlock_release_writelock(&table.locks[index]);
+        return;
+    }
     strcpy(newNode->name, name);
     newNode->salary = salary;
     newNode->hash = hash;
@@ -126,16 +127,17 @@ pthread_cond_t inserts_done = PTHREAD_COND_INITIALIZER;
 pthread_cond_t deletes_done = PTHREAD_COND_INITIALIZER;
 
 // Delete Record from Hash Table
-void delete(const char *name) {
-    fprintf(output_file, "%lld: DELETE,%s\n", get_timestamp(), name);
+void delete_record(const char *name) {
+    fprintf(output_file, "%lld: DELETE AWAKENED\n", get_timestamp());
 
     pthread_mutex_lock(&mutex);
+    printf("Waiting on Inserts %d\n", inserts_in_progress);
     if (inserts_in_progress > 0) {
         deletes_waiting++;
         fprintf(output_file, "%lld: WAITING ON INSERTS\n", get_timestamp());
         pthread_cond_wait(&inserts_done, &mutex);
         deletes_waiting--;
-        fprintf(output_file, "%lld: DELETE AWAKENED\n", get_timestamp());
+        fprintf(output_file, "%lld: DELETE,%s\n", get_timestamp(), name);
     }
     pthread_mutex_unlock(&mutex);
 
@@ -193,43 +195,55 @@ void search(const char *name) {
 int compare_hash_records(const void *a, const void *b) {
     hashRecord *record_a = *(hashRecord **)a;
     hashRecord *record_b = *(hashRecord **)b;
-    return (record_a->hash > record_b->hash) - (record_a->hash < record_b->hash);
+    if (record_a->hash > record_b->hash)
+        return 1;
+    else if (record_a->hash < record_b->hash)
+        return -1;
+    else
+        return 0;
 }
 
-// Print final table and statistics.
+// Revised print_final_table: since no updates occur at this point, locks are omitted.
 void print_final_table() {
-    hashRecord **records = NULL;
     int record_count = 0;
+    // Count records without locking (table is static now)
     for (int i = 0; i < TABLE_SIZE; i++) {
-        rwlock_acquire_readlock(&table.locks[i]);
         hashRecord *current = table.buckets[i];
         while (current) {
             record_count++;
             current = current->next;
         }
-        rwlock_release_readlock(&table.locks[i]);
     }
-    records = malloc(record_count * sizeof(hashRecord *));
-    if (!records) {
-        fprintf(output_file, "Memory allocation error\n");
+
+    if (record_count == 0) {
+        fprintf(output_file, "Number of lock acquisitions: %d\n", lock_acquisitions);
+        fprintf(output_file, "Number of lock releases: %d\n", lock_releases);
+        fprintf(output_file, "Table is empty.\n");
         return;
     }
+
+    hashRecord **records = malloc(record_count * sizeof(hashRecord *));
+    if (!records) {
+        fprintf(output_file, "Memory allocation error in print_final_table\n");
+        return;
+    }
+
     int index = 0;
     for (int i = 0; i < TABLE_SIZE; i++) {
-        rwlock_acquire_readlock(&table.locks[i]);
         hashRecord *current = table.buckets[i];
         while (current) {
             records[index++] = current;
             current = current->next;
         }
-        rwlock_release_readlock(&table.locks[i]);
     }
     qsort(records, record_count, sizeof(hashRecord *), compare_hash_records);
 
-    // Added lines for lock acquisition and release counts:
+    // Print lock statistics.
+    fprintf(output_file, "Finished all threads.\n");
     fprintf(output_file, "Number of lock acquisitions: %d\n", lock_acquisitions);
     fprintf(output_file, "Number of lock releases: %d\n", lock_releases);
 
+    // Print final table snapshot.
     fprintf(output_file, "%lld: READ LOCK ACQUIRED\n", get_timestamp());
     for (int i = 0; i < record_count; i++) {
         fprintf(output_file, "%u,%s,%u\n", records[i]->hash, records[i]->name, records[i]->salary);
@@ -262,14 +276,12 @@ void *process_command(void *arg) {
         pthread_mutex_unlock(&mutex);
     } else if (strcmp(token, "delete") == 0) {
         char *name = strtok(NULL, ",");
-        delete(name);
+        delete_record(name);
     } else if (strcmp(token, "search") == 0) {
         char *name = strtok(NULL, ",");
         search(name);
     }
-    else{}
-    //print was here when it shouldn't be because there is no command for print
-
+    // No "print" command is processed here.
 
     free(line_copy);
     free(cmd);
@@ -298,6 +310,7 @@ int main(void) {
 
     char line[MAX_LINE_LENGTH];
 
+    // Read header line (e.g., "threads,10")
     if (!fgets(line, sizeof(line), file)) {
         fclose(file);
         fclose(output_file);
@@ -320,7 +333,6 @@ int main(void) {
     int insert_count = 0;
     char **noninsert_commands = NULL;
     int noninsert_count = 0;
-
     int capacity_inserts = num_threads, capacity_noninserts = num_threads;
     insert_commands = malloc(capacity_inserts * sizeof(char *));
     noninsert_commands = malloc(capacity_noninserts * sizeof(char *));
@@ -360,11 +372,12 @@ int main(void) {
             free(insert_commands[i]);
         }
     }
-    for (int i = 0; i < insert_count; i++)
+    for (int i = 0; i < insert_count; i++) {
         pthread_join(threads[i], NULL);
+    }
     free(threads);
 
-    // Phase 2: Process all non-insert commands (delete, search, print).
+    // Phase 2: Process all non-insert commands (delete, search).
     threads = malloc(noninsert_count * sizeof(pthread_t));
     for (int i = 0; i < noninsert_count; i++) {
         if (pthread_create(&threads[i], NULL, process_command, noninsert_commands[i]) != 0) {
@@ -372,11 +385,15 @@ int main(void) {
             free(noninsert_commands[i]);
         }
     }
-    for (int i = 0; i < noninsert_count; i++)
+    for (int i = 0; i < noninsert_count; i++) {
         pthread_join(threads[i], NULL);
+    }
     free(threads);
 
-    fprintf(output_file, "Finished all threads.\n");
+    // Now that all worker threads have finished, print the final table.
+    print_final_table();
+    printf("HERE\n");
+
 
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&inserts_done);
