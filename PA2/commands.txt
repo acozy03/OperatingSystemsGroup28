@@ -9,3 +9,4 @@ insert,Roberta Williams,45900
 delete,Richard Garriot,0
 insert,Carol Shaw,41000
 search,Sid Meier,0
+search,Richard Garriot,0

@@ -88,6 +88,9 @@ void rwlock_release_writelock(rwlock_t *lock) {
 
 // Insert Record into Hash Table
 void insert(const char *name, uint32_t salary) {
+
+    //adding a delay randomizes the threads
+    _sleep(1);
     fprintf(output_file, "%lld: INSERT,%u,%s,%u\n", get_timestamp(), jenkins_hash(name), name, salary);
 
     uint32_t hash = jenkins_hash(name);
@@ -129,15 +132,22 @@ pthread_cond_t deletes_done = PTHREAD_COND_INITIALIZER;
 // Delete Record from Hash Table
 void delete_record(const char *name) {
     fprintf(output_file, "%lld: DELETE AWAKENED\n", get_timestamp());
-
+    //should be in the if condition but condition variable is not working properly.
+    fprintf(output_file, "%lld: DELETE,%s\n", get_timestamp(), name);
     pthread_mutex_lock(&mutex);
-    printf("Waiting on Inserts %d\n", inserts_in_progress);
+
+    //condition is never true IDK why
+    //
+    //
+    //
+    //
+    printf("%d\n", inserts_in_progress);
     if (inserts_in_progress > 0) {
+        printf("entering waiting condition\n");
         deletes_waiting++;
         fprintf(output_file, "%lld: WAITING ON INSERTS\n", get_timestamp());
         pthread_cond_wait(&inserts_done, &mutex);
         deletes_waiting--;
-        fprintf(output_file, "%lld: DELETE,%s\n", get_timestamp(), name);
     }
     pthread_mutex_unlock(&mutex);
 
@@ -179,6 +189,7 @@ void search(const char *name) {
     rwlock_acquire_readlock(&table.locks[index]);
 
     hashRecord *current = table.buckets[index];
+    //printf("SEARCHING in bucket %d for name '%s'\n", index, name);
     while (current) {
         if (strcmp(current->name, name) == 0) {
             fprintf(output_file, "%u,%s,%u\n", current->hash, current->name, current->salary);
@@ -392,8 +403,6 @@ int main(void) {
 
     // Now that all worker threads have finished, print the final table.
     print_final_table();
-    printf("HERE\n");
-
 
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&inserts_done);
