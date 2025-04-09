@@ -4,4 +4,5 @@ project(PA2 C)
 set(CMAKE_C_STANDARD 11)
 
 add_executable(PA2 chash.c
-        chash.h)
+        chash.h
+        chash_ops.c)

@@ -1,3 +1,3 @@
 # file: Makefile
-chash: chash.c
-	$(CC) -o chash chash.c
+chash: chash.c chash_ops.c
+	$(CC) -o chash chash.c chash_ops.c -pthread

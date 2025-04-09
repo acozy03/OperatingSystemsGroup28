@@ -38,7 +38,18 @@ typedef struct hashTable {
     rwlock_t locks[TABLE_SIZE];
 } hashTable;
 
+// Global variables shared across source files
 extern hashTable table;
+extern FILE *output_file;
+extern int lock_acquisitions;
+extern int lock_releases;
+
+// Global synchronization for inserts and deletes.
+extern int inserts_in_progress;
+extern int deletes_waiting;
+extern pthread_mutex_t mutex;
+extern pthread_cond_t inserts_done;
+extern pthread_cond_t deletes_done;
 
 // Hash table functions
 void rwlock_init(rwlock_t *lock);
