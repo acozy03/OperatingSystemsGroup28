@@ -8,12 +8,13 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #define TABLE_SIZE 100
 #define MAX_NAME_LENGTH 50
 #define MAX_LINE_LENGTH 256
 
-// Define semaphore macros to match the reference code  
+// Define semaphore macros to match the reference code
 #define Sem_init(sem, value) sem_init(sem, 0, value)
 #define Sem_wait(sem) sem_wait(sem)
 #define Sem_post(sem) sem_post(sem)
@@ -47,9 +48,8 @@ void rwlock_acquire_writelock(rwlock_t *lock);
 void rwlock_release_writelock(rwlock_t *lock);
 void initialize_table();
 void insert(const char *name, uint32_t salary);
-void delete(const char *name);
+void delete_record(const char *name);
 void search(const char *name);
-void print();
 void print_final_table();
 uint32_t jenkins_hash(const char *key);
 long long get_timestamp();

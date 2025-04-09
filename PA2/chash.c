@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #define MAX_LINE_LENGTH 256
 
@@ -90,7 +91,7 @@ void rwlock_release_writelock(rwlock_t *lock) {
 void insert(const char *name, uint32_t salary) {
 
     //adding a delay randomizes the threads
-    _sleep(1);
+    sleep(1);
     fprintf(output_file, "%lld: INSERT,%u,%s,%u\n", get_timestamp(), jenkins_hash(name), name, salary);
 
     uint32_t hash = jenkins_hash(name);
@@ -132,18 +133,9 @@ pthread_cond_t deletes_done = PTHREAD_COND_INITIALIZER;
 // Delete Record from Hash Table
 void delete_record(const char *name) {
     fprintf(output_file, "%lld: DELETE AWAKENED\n", get_timestamp());
-    //should be in the if condition but condition variable is not working properly.
-    fprintf(output_file, "%lld: DELETE,%s\n", get_timestamp(), name);
-    pthread_mutex_lock(&mutex);
 
-    //condition is never true IDK why
-    //
-    //
-    //
-    //
-    printf("%d\n", inserts_in_progress);
-    if (inserts_in_progress > 0) {
-        printf("entering waiting condition\n");
+    pthread_mutex_lock(&mutex);
+    while (inserts_in_progress > 0) {
         deletes_waiting++;
         fprintf(output_file, "%lld: WAITING ON INSERTS\n", get_timestamp());
         pthread_cond_wait(&inserts_done, &mutex);
@@ -189,7 +181,6 @@ void search(const char *name) {
     rwlock_acquire_readlock(&table.locks[index]);
 
     hashRecord *current = table.buckets[index];
-    //printf("SEARCHING in bucket %d for name '%s'\n", index, name);
     while (current) {
         if (strcmp(current->name, name) == 0) {
             fprintf(output_file, "%u,%s,%u\n", current->hash, current->name, current->salary);
@@ -239,11 +230,11 @@ void print_final_table() {
         return;
     }
 
-    int index = 0;
+    int index_counter = 0;
     for (int i = 0; i < TABLE_SIZE; i++) {
         hashRecord *current = table.buckets[i];
         while (current) {
-            records[index++] = current;
+            records[index_counter++] = current;
             current = current->next;
         }
     }
