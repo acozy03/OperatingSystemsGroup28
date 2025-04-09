@@ -132,6 +132,7 @@ pthread_cond_t deletes_done = PTHREAD_COND_INITIALIZER;
 
 // Delete Record from Hash Table
 void delete_record(const char *name) {
+    // Log that the delete operation is awakening.
     fprintf(output_file, "%lld: DELETE AWAKENED\n", get_timestamp());
 
     pthread_mutex_lock(&mutex);
@@ -142,6 +143,9 @@ void delete_record(const char *name) {
         deletes_waiting--;
     }
     pthread_mutex_unlock(&mutex);
+
+    // After waiting, log the delete command for the specified record.
+    fprintf(output_file, "%lld: DELETE,%s\n", get_timestamp(), name);
 
     uint32_t hash = jenkins_hash(name);
     int index = hash % TABLE_SIZE;
@@ -171,6 +175,7 @@ void delete_record(const char *name) {
     pthread_cond_signal(&deletes_done);
     pthread_mutex_unlock(&mutex);
 }
+
 
 // Search for a Record in the Hash Table
 void search(const char *name) {
