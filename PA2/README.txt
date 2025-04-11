@@ -14,6 +14,13 @@ Compilation & Execution:
   3. Ensure the "commands.txt" file is in the same directory.
   4. Run the executable "./chash" and check the generated "output.txt" for results.
 
+  or
+
+  1. Open a terminal in the project directory.
+  2. Compile manually using GCC: gcc chash.c chash_ops.c -o chash.exe -lpthread
+  3. Ensure the "commands.txt" file is in the same directory.
+  4. Run the executable "./chash.exe" and check the generated "output.txt" for results.
+
 AI Attribution:
   I used ChatGPT as an AI assistant to help refactor the original code, create the modular file structure, and resolve compilation issues related to shared globals. The prompts included requests to split the code into separate files and to provide a simple README. All AI assistance was used as a supplementary tool for organization and clarity without altering the core logic of the program.
 
